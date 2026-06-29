@@ -29,7 +29,13 @@ export async function updateSession(request: NextRequest) {
   );
 
   // IMPORTANTE: no metas logica entre createServerClient y getUser().
-  await supabase.auth.getUser();
+  // El try-catch es necesario: si el refresh token expiró o no existe,
+  // getUser() lanza AuthApiError. Lo ignoramos y dejamos pasar la request sin sesión.
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Token inválido — la request continúa sin sesión activa.
+  }
 
   return supabaseResponse;
 }
