@@ -26,6 +26,25 @@ export async function login(
     return { error: traducirError(error.message) };
   }
 
+  // Verificar que la cuenta esté aprobada
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("estado")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.estado === "pendiente") {
+      await supabase.auth.signOut();
+      return { error: "Tu cuenta está pendiente de aprobación por el administrador." };
+    }
+    if (profile?.estado === "rechazado") {
+      await supabase.auth.signOut();
+      return { error: "Tu solicitud fue rechazada. Contacta al administrador para más información." };
+    }
+  }
+
   revalidatePath("/", "layout");
   redirect(next);
 }
@@ -49,7 +68,7 @@ export async function registro(
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -61,26 +80,11 @@ export async function registro(
     return { error: traducirError(error.message) };
   }
 
-  // Si ya hay sesion (confirmacion desactivada) -> entrar directo.
-  if (data.session) {
-    revalidatePath("/", "layout");
-    redirect(next);
-  }
-
-  // El email se auto-confirma en la BD, asi que intentamos iniciar sesion al instante.
-  const { error: errorLogin } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (!errorLogin) {
-    revalidatePath("/", "layout");
-    redirect(next);
-  }
-
-  // Fallback (si la confirmacion por correo siguiera activa).
+  // La cuenta queda en estado 'pendiente' — cerrar sesión inmediatamente.
+  await supabase.auth.signOut();
   return {
     mensaje:
-      "Cuenta creada. Revisa tu correo y confirma tu email para poder iniciar sesión.",
+      "Solicitud enviada correctamente. El administrador revisará tu cuenta y te dará acceso pronto.",
   };
 }
 

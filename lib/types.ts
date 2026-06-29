@@ -1,6 +1,7 @@
 // Tipos de la base de datos (Fase 1). Reflejan las migrations SQL.
 
 export type RolUsuario = "admin" | "responsable" | "donante";
+export type EstadoUsuario = "pendiente" | "activo" | "rechazado";
 export type EstadoCentro = "activo" | "cerrado" | "pendiente" | "pendiente_eliminacion";
 export type TipoCentro = "hospital" | "centro_acopio" | "centro_medico" | "temporal";
 export type CategoriaInsumo =
@@ -47,6 +48,7 @@ export interface Profile {
   telefono_whatsapp: string;
   email: string;
   rol: RolUsuario;
+  estado: EstadoUsuario;
   centro_id: string | null;
   created_at: string;
 }

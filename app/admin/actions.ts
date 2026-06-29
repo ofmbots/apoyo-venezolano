@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { CategoriaInsumo, EstadoCentro, RolUsuario } from "@/lib/types";
 
 function conError(path: string, msg: string): never {
@@ -144,6 +145,33 @@ export async function asignarResponsable(formData: FormData) {
 }
 
 // ───────────── Usuarios ─────────────
+export async function aprobarUsuario(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const profile_id = String(formData.get("profile_id") ?? "");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ estado: "activo", rol: "responsable" })
+    .eq("id", profile_id);
+
+  if (error) conError("/admin/usuarios", error.message);
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin");
+}
+
+export async function rechazarUsuario(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const profile_id = String(formData.get("profile_id") ?? "");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ estado: "rechazado" })
+    .eq("id", profile_id);
+
+  if (error) conError("/admin/usuarios", error.message);
+  revalidatePath("/admin/usuarios");
+}
+
 export async function cambiarRol(formData: FormData) {
   const { supabase, user } = await requireAdmin();
   const profile_id = String(formData.get("profile_id") ?? "");
@@ -162,6 +190,22 @@ export async function cambiarRol(formData: FormData) {
   if (error) conError("/admin/usuarios", error.message);
   revalidatePath("/admin/usuarios");
   revalidatePath("/admin");
+}
+
+export async function resetearPassword(formData: FormData) {
+  await requireAdmin();
+  const profile_id = String(formData.get("profile_id") ?? "");
+  const nueva = String(formData.get("nueva_password") ?? "").trim();
+
+  if (nueva.length < 6) conError("/admin/usuarios", "La contraseña debe tener al menos 6 caracteres.");
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(profile_id, {
+    password: nueva,
+  });
+
+  if (error) conError("/admin/usuarios", error.message);
+  revalidatePath("/admin/usuarios");
 }
 
 export async function asignarCentroUsuario(formData: FormData) {
