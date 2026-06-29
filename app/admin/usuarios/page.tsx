@@ -8,6 +8,7 @@ import {
   aprobarUsuario,
   rechazarUsuario,
   resetearPassword,
+  editarNombre,
 } from "@/app/admin/actions";
 import { ROL_USUARIO_VALUES, type Centro, type Profile } from "@/lib/types";
 
@@ -183,6 +184,21 @@ export default async function AdminUsuarios({
                     </Button>
                   </form>
                 )}
+
+                {/* Editar nombre */}
+                <form action={editarNombre} className="flex items-center gap-2">
+                  <input type="hidden" name="profile_id" value={p.id} />
+                  <input
+                    type="text"
+                    name="nombre_completo"
+                    defaultValue={p.nombre_completo}
+                    required
+                    className="h-9 w-44 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-marca/60 focus:outline-none"
+                  />
+                  <Button type="submit" variant="secondary" size="sm">
+                    Renombrar
+                  </Button>
+                </form>
 
                 {/* Reset de contraseña */}
                 <form action={resetearPassword} className="flex items-center gap-2">

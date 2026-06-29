@@ -14,9 +14,9 @@ export default async function RegistroPage({
     <div className="mx-auto max-w-md px-4 py-12 sm:py-20">
       <Card className="w-full animate-fade-up">
         <CardHeader>
-          <CardTitle>Crear cuenta</CardTitle>
+          <CardTitle>Registro de responsable</CardTitle>
           <p className="mt-1 text-sm text-slate-400">
-            Regístrate para donar o gestionar centros.
+            Este registro es exclusivo para responsables de centros de apoyo. Tu solicitud será revisada por el administrador antes de activarse.
           </p>
         </CardHeader>
         <CardContent>

@@ -192,6 +192,22 @@ export async function cambiarRol(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function editarNombre(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const profile_id = String(formData.get("profile_id") ?? "");
+  const nombre_completo = String(formData.get("nombre_completo") ?? "").trim();
+
+  if (!nombre_completo) conError("/admin/usuarios", "El nombre no puede estar vacío.");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ nombre_completo })
+    .eq("id", profile_id);
+
+  if (error) conError("/admin/usuarios", error.message);
+  revalidatePath("/admin/usuarios");
+}
+
 export async function resetearPassword(formData: FormData) {
   await requireAdmin();
   const profile_id = String(formData.get("profile_id") ?? "");
