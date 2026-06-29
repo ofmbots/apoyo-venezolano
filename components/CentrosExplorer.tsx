@@ -18,11 +18,12 @@ type Filtro = TipoCentro | "todos";
 const ORDEN_TIPOS: TipoCentro[] = ["hospital", "centro_acopio", "centro_medico", "temporal"];
 
 // Normaliza: minúsculas y sin acentos, para que "cara" encuentre "Caracas".
+// Nota: [̀-ͯ] es equivalente a \p{Diacritic} pero funciona en iOS Safari antiguo.
 function normalizar(s: string) {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+    .replace(/[̀-ͯ]/g, "");
 }
 
 export function CentrosExplorer({ centros }: { centros: Centro[] }) {
