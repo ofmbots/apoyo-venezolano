@@ -1,7 +1,7 @@
 // Tipos de la base de datos (Fase 1). Reflejan las migrations SQL.
 
 export type RolUsuario = "admin" | "responsable" | "donante";
-export type EstadoCentro = "activo" | "cerrado" | "pendiente";
+export type EstadoCentro = "activo" | "cerrado" | "pendiente" | "pendiente_eliminacion";
 export type TipoCentro = "hospital" | "centro_acopio" | "centro_medico" | "temporal";
 export type CategoriaInsumo =
   | "agua"
@@ -36,6 +36,7 @@ export interface Centro {
   estado: EstadoCentro;
   telefono_contacto: string | null;
   fecha_hasta: string | null;
+  eliminacion_motivo: string | null;
   created_at: string;
 }
 

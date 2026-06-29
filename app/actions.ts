@@ -125,17 +125,38 @@ export async function crearCentro(
     return { error: "No se pudo crear el centro: " + error.message };
   }
 
+  revalidatePath("/admin/centros");
+  revalidatePath("/");
+
   if (esAdmin) {
-    revalidatePath("/");
     redirect(`/centros/${data!.id}`);
   }
 
-  await supabase.from("mensajes_admin").insert({
-    tipo: "solicitud_centro",
-    mensaje: `Solicitud de nuevo centro: "${nombre}" (${tipo})${direccion ? ` en ${direccion}` : ""}.`,
-    centro_id: data!.id,
-    enviado_por: user.id,
+  return { ok: true };
+}
+
+// ── Solicitar eliminación de un centro (va a solicitudes pendientes) ──
+export async function solicitarEliminacion(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Debes iniciar sesión para hacer esta solicitud." };
+
+  const centro_id = String(formData.get("centro_id") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim();
+
+  if (!centro_id) return { error: "Centro no especificado." };
+
+  const { error } = await supabase.rpc("solicitar_eliminacion_centro", {
+    p_centro_id: centro_id,
+    p_motivo: motivo || null,
   });
+
+  if (error) return { error: "No se pudo enviar la solicitud: " + error.message };
 
   revalidatePath("/admin/centros");
   return { ok: true };

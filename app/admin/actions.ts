@@ -82,6 +82,23 @@ export async function eliminarInsumo(formData: FormData) {
 }
 
 // ───────────── Centros ─────────────
+export async function eliminarCentro(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+
+  await supabase.from("centros").update({ responsable_id: null }).eq("id", id);
+  await supabase.from("profiles").update({ centro_id: null }).eq("centro_id", id);
+
+  const { error } = await supabase.from("centros").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503")
+      conError("/admin/centros", "No se puede eliminar: tiene solicitudes vinculadas. Ciérralo primero.");
+    conError("/admin/centros", error.message);
+  }
+  revalidatePath("/admin/centros");
+  revalidatePath("/");
+}
+
 export async function cambiarEstadoCentro(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = String(formData.get("id") ?? "");

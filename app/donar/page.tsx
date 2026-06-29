@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, HeartHandshake } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DonarFlow } from "@/components/forms/DonarFlow";
 import type { CatalogoInsumo } from "@/lib/types";
@@ -8,11 +8,11 @@ import type { CatalogoInsumo } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function DonarPage() {
-  const { supabase } = await requireUser("/donar");
+  const supabase = await createClient();
 
   const { data: insumos } = await supabase
     .from("catalogo_insumos")
-    .select("id, nombre, unidad")
+    .select("id, nombre, unidad, categoria")
     .order("nombre");
 
   return (
@@ -36,7 +36,7 @@ export default async function DonarPage() {
         </CardHeader>
         <CardContent>
           <DonarFlow
-            insumos={(insumos ?? []) as Pick<CatalogoInsumo, "id" | "nombre" | "unidad">[]}
+            insumos={(insumos ?? []) as Pick<CatalogoInsumo, "id" | "nombre" | "unidad" | "categoria">[]}
           />
         </CardContent>
       </Card>

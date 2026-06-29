@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Trash2, ChevronDown, Send } from "lucide-react";
-import { enviarReporte, type FormState } from "@/app/actions";
+import { solicitarEliminacion, type FormState } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,7 @@ export function SolicitarEliminacionForm({
 }) {
   const [abierto, setAbierto] = useState(false);
   const [state, formAction, pending] = useActionState<FormState, FormData>(
-    enviarReporte,
+    solicitarEliminacion,
     null
   );
   const ref = useRef<HTMLDivElement>(null);
@@ -33,7 +33,7 @@ export function SolicitarEliminacionForm({
     return (
       <div className="rounded-xl border border-slate-800 p-4 text-center">
         <p className="text-sm text-slate-400">
-          ✓ Solicitud enviada. El equipo la revisará y contactará si es necesario.
+          ✓ Solicitud enviada. El equipo la revisará próximamente.
         </p>
       </div>
     );
@@ -60,7 +60,6 @@ export function SolicitarEliminacionForm({
 
       {abierto && (
         <form action={formAction} className="border-t border-slate-800 px-4 pb-4 pt-3 space-y-3">
-          <input type="hidden" name="tipo" value="solicitud_eliminacion" />
           <input type="hidden" name="centro_id" value={centroId} />
 
           <p className="text-xs text-slate-500">
@@ -68,24 +67,12 @@ export function SolicitarEliminacionForm({
             (cerrado, duplicado, información incorrecta, etc.).
           </p>
 
-          <div className="space-y-1.5">
-            <textarea
-              name="mensaje"
-              required
-              rows={3}
-              placeholder={`Motivo para eliminar "${centroNombre}"…`}
-              className="w-full resize-none rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-marca/60 focus:outline-none focus:ring-2 focus:ring-marca/25"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <input
-              type="email"
-              name="email"
-              placeholder="Tu email (opcional, para responderte)"
-              className="h-10 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-marca/60 focus:outline-none focus:ring-2 focus:ring-marca/25"
-            />
-          </div>
+          <textarea
+            name="motivo"
+            rows={3}
+            placeholder={`Motivo para eliminar "${centroNombre}"…`}
+            className="w-full resize-none rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-marca/60 focus:outline-none focus:ring-2 focus:ring-marca/25"
+          />
 
           {state?.error && (
             <p className="text-xs text-red-400">{state.error}</p>

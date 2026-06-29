@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Plus, Power, PowerOff, UserCheck, Clock } from "lucide-react";
+import { Plus, Power, PowerOff, UserCheck, Clock, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ErrorBanner } from "@/components/admin/ErrorBanner";
-import { cambiarEstadoCentro, asignarResponsable } from "@/app/admin/actions";
+import { cambiarEstadoCentro, asignarResponsable, eliminarCentro } from "@/app/admin/actions";
+import { EliminarCentroBtn } from "@/components/admin/EliminarCentroBtn";
 import { TIPO_CENTRO_COLOR, TIPO_CENTRO_LABEL, type Centro } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -32,20 +33,23 @@ export default async function AdminCentros({
   const profiles = (profilesData ?? []) as ProfileMini[];
   const nombrePorId = new Map(profiles.map((p) => [p.id, p.nombre_completo]));
 
-  const pendientes = todos.filter((c) => c.estado === "pendiente");
-  const resto      = todos.filter((c) => c.estado !== "pendiente");
+  const pendientes           = todos.filter((c) => c.estado === "pendiente");
+  const pendienteEliminacion = todos.filter((c) => c.estado === "pendiente_eliminacion");
+  const resto                = todos.filter(
+    (c) => c.estado !== "pendiente" && c.estado !== "pendiente_eliminacion"
+  );
 
   return (
     <div className="space-y-8">
       <ErrorBanner message={error} />
 
-      {/* ── Solicitudes pendientes ── */}
+      {/* ── Solicitudes de nuevo centro ── */}
       {pendientes.length > 0 && (
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Clock className="h-4 w-4 text-amber-400" />
             <h2 className="font-semibold text-amber-300">
-              Solicitudes pendientes ({pendientes.length})
+              Solicitudes de alta ({pendientes.length})
             </h2>
           </div>
           <div className="space-y-3">
@@ -84,6 +88,59 @@ export default async function AdminCentros({
                     <form action={cambiarEstadoCentro}>
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="estado" value="cerrado" />
+                      <Button type="submit" variant="outline" size="sm">
+                        Rechazar
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Solicitudes de eliminación ── */}
+      {pendienteEliminacion.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+            <h2 className="font-semibold text-red-300">
+              Solicitudes de eliminación ({pendienteEliminacion.length})
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {pendienteEliminacion.map((c) => (
+              <div
+                key={c.id}
+                className="rounded-xl border border-red-500/20 bg-red-500/5 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: TIPO_CENTRO_COLOR[c.tipo] }}
+                      />
+                      <span className="text-xs uppercase tracking-wide text-slate-500">
+                        {TIPO_CENTRO_LABEL[c.tipo]}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-semibold text-slate-100">{c.nombre}</p>
+                    {c.direccion && (
+                      <p className="text-sm text-slate-500">{c.direccion}</p>
+                    )}
+                    {c.eliminacion_motivo && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Motivo: {c.eliminacion_motivo}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <EliminarCentroBtn id={c.id} label="Confirmar eliminación" />
+                    <form action={cambiarEstadoCentro}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <input type="hidden" name="estado" value="activo" />
                       <Button type="submit" variant="outline" size="sm">
                         Rechazar
                       </Button>
@@ -157,17 +214,20 @@ export default async function AdminCentros({
                       </p>
                     </div>
 
-                    <form action={cambiarEstadoCentro}>
-                      <input type="hidden" name="id" value={c.id} />
-                      <input type="hidden" name="estado" value={activo ? "cerrado" : "activo"} />
-                      <Button type="submit" variant="outline" size="sm">
-                        {activo ? (
-                          <><PowerOff className="h-4 w-4" /> Cerrar</>
-                        ) : (
-                          <><Power className="h-4 w-4" /> Activar</>
-                        )}
-                      </Button>
-                    </form>
+                    <div className="flex gap-2">
+                      <form action={cambiarEstadoCentro}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="estado" value={activo ? "cerrado" : "activo"} />
+                        <Button type="submit" variant="outline" size="sm">
+                          {activo ? (
+                            <><PowerOff className="h-4 w-4" /> Cerrar</>
+                          ) : (
+                            <><Power className="h-4 w-4" /> Activar</>
+                          )}
+                        </Button>
+                      </form>
+                      <EliminarCentroBtn id={c.id} />
+                    </div>
                   </div>
 
                   <form

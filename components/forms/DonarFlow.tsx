@@ -1,19 +1,35 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import Link from "next/link";
-import { LocateFixed, Phone, Search, MapPin } from "lucide-react";
+import { LocateFixed, Phone, Search, MapPin, Keyboard, Map } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { BuscadorDireccion } from "@/components/forms/BuscadorDireccion";
+import { cn } from "@/lib/utils";
 import {
   TIPO_CENTRO_COLOR,
   TIPO_CENTRO_LABEL,
+  CATEGORIA_INSUMO_LABEL,
+  CATEGORIA_INSUMO_VALUES,
   type CatalogoInsumo,
+  type CategoriaInsumo,
   type TipoCentro,
 } from "@/lib/types";
+
+const MapaSelectorPicker = dynamic(() => import("@/components/mapa/MapaSelectorPicker"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-slate-900 text-sm text-slate-500">
+      Cargando mapa…
+    </div>
+  ),
+});
+
+type Modo = "buscador" | "mapa";
 
 interface Resultado {
   centro_id: string;
@@ -29,41 +45,33 @@ interface Resultado {
 export function DonarFlow({
   insumos,
 }: {
-  insumos: Pick<CatalogoInsumo, "id" | "nombre" | "unidad">[];
+  insumos: Pick<CatalogoInsumo, "id" | "nombre" | "unidad" | "categoria">[];
 }) {
   const supabase = createClient();
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
+  const [modo, setModo] = useState<Modo>("buscador");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [categoria, setCategoria] = useState<CategoriaInsumo | "">("");
   const [insumoId, setInsumoId] = useState("");
-  const [geoMsg, setGeoMsg] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultados, setResultados] = useState<Resultado[] | null>(null);
   const [esFallback, setEsFallback] = useState(false);
 
-  function usarUbicacion() {
-    if (!navigator.geolocation) {
-      setGeoMsg("Tu navegador no permite geolocalización.");
-      return;
-    }
-    setGeoMsg("Obteniendo ubicación…");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(6));
-        setLng(pos.coords.longitude.toFixed(6));
-        setGeoMsg("Ubicación cargada ✓");
-      },
-      () => setGeoMsg("No se pudo obtener tu ubicación. Escríbela a mano."),
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+  const insumosFiltrados = categoria
+    ? insumos.filter((i) => i.categoria === categoria)
+    : [];
+
+  function handleCategoriaChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setCategoria(e.target.value as CategoriaInsumo);
+    setInsumoId("");
+    setResultados(null);
   }
 
   async function buscar() {
     setError(null);
-    const latN = Number(lat);
-    const lngN = Number(lng);
-    if (Number.isNaN(latN) || Number.isNaN(lngN) || !lat || !lng) {
-      setError("Indica tu ubicación (usa el botón o escribe lat/lng).");
+    if (lat === null || lng === null) {
+      setError("Indica tu ubicación usando el buscador o el mapa.");
       return;
     }
     if (!insumoId) {
@@ -76,8 +84,8 @@ export function DonarFlow({
 
     const { data, error: rpcError } = await supabase.rpc("buscar_centros_con_insumo", {
       insumo_buscado: insumoId,
-      lat_donante: latN,
-      lng_donante: lngN,
+      lat_donante: lat,
+      lng_donante: lng,
     });
 
     if (rpcError) {
@@ -90,10 +98,9 @@ export function DonarFlow({
       setResultados(data as Resultado[]);
       setEsFallback(false);
     } else {
-      // Fallback: nadie necesita ese insumo -> centros activos más cercanos
       const { data: cercanos } = await supabase.rpc("centros_mas_cercanos", {
-        lat_donante: latN,
-        lng_donante: lngN,
+        lat_donante: lat,
+        lng_donante: lng,
         limite: 5,
       });
       setResultados((cercanos ?? []) as Resultado[]);
@@ -103,54 +110,106 @@ export function DonarFlow({
   }
 
   const insumoNombre = insumos.find((i) => i.id === insumoId)?.nombre;
+  const sinUbicacion = lat === null || lng === null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Paso 1: ubicación */}
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <Label>1. ¿Dónde estás?</Label>
-          <Button type="button" variant="secondary" size="sm" onClick={usarUbicacion}>
-            <LocateFixed className="h-4 w-4" /> Usar mi ubicación
-          </Button>
+        <Label className="mb-2 block">1. ¿Dónde estás?</Label>
+
+        <div className="mb-3 flex gap-1 rounded-lg border border-slate-700 bg-slate-900 p-1">
+          <button
+            type="button"
+            onClick={() => setModo("buscador")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+              modo === "buscador"
+                ? "bg-slate-700 text-slate-100 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            )}
+          >
+            <Keyboard className="h-3.5 w-3.5" /> Buscar dirección
+          </button>
+          <button
+            type="button"
+            onClick={() => setModo("mapa")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+              modo === "mapa"
+                ? "bg-slate-700 text-slate-100 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            )}
+          >
+            <Map className="h-3.5 w-3.5" /> Marcar en mapa
+          </button>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-            type="number"
-            step="any"
-            placeholder="Latitud"
+
+        {modo === "buscador" ? (
+          <BuscadorDireccion
+            onSelect={(lt, lg) => { setLat(lt); setLng(lg); }}
           />
-          <Input
-            value={lng}
-            onChange={(e) => setLng(e.target.value)}
-            type="number"
-            step="any"
-            placeholder="Longitud"
-          />
-        </div>
-        {geoMsg && <p className="mt-1.5 text-xs text-slate-400">{geoMsg}</p>}
+        ) : (
+          <div className="space-y-1.5">
+            <div className="h-56 overflow-hidden rounded-xl border border-slate-700">
+              <MapaSelectorPicker
+                lat={lat}
+                lng={lng}
+                onSelect={(lt, lg) => { setLat(lt); setLng(lg); }}
+              />
+            </div>
+            <p className="text-xs text-slate-500">
+              Haz clic en el mapa para marcar tu ubicación.
+            </p>
+          </div>
+        )}
+
+        {lat !== null && (
+          <p className="mt-1.5 flex items-center gap-1 text-xs text-marca">
+            <LocateFixed className="h-3.5 w-3.5" />
+            Ubicación seleccionada ({lat.toFixed(4)}, {lng!.toFixed(4)})
+          </p>
+        )}
       </div>
 
-      {/* Paso 2: insumo */}
+      {/* Paso 2: categoría */}
       <div className="space-y-1.5">
-        <Label htmlFor="insumo">2. ¿Qué quieres donar?</Label>
+        <Label htmlFor="categoria">2. ¿Qué categoría quieres donar?</Label>
         <Select
-          id="insumo"
-          value={insumoId}
-          onChange={(e) => setInsumoId(e.target.value)}
+          id="categoria"
+          value={categoria}
+          onChange={handleCategoriaChange}
         >
-          <option value="" disabled>
-            Elige un insumo…
-          </option>
-          {insumos.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.nombre}
+          <option value="" disabled>Elige una categoría…</option>
+          {CATEGORIA_INSUMO_VALUES.map((cat) => (
+            <option key={cat} value={cat}>
+              {CATEGORIA_INSUMO_LABEL[cat]}
             </option>
           ))}
         </Select>
       </div>
+
+      {/* Paso 3: insumo filtrado */}
+      {categoria && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="insumo">3. ¿Qué producto concreto?</Label>
+            <span className="text-xs text-slate-500">{insumosFiltrados.length} disponibles</span>
+          </div>
+          <Select
+            id="insumo"
+            value={insumoId}
+            onChange={(e) => setInsumoId(e.target.value)}
+          >
+            <option value="" disabled>Elige un insumo…</option>
+            {insumosFiltrados.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.nombre}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       {error && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
@@ -158,7 +217,12 @@ export function DonarFlow({
         </p>
       )}
 
-      <Button onClick={buscar} className="w-full" size="lg" disabled={buscando}>
+      <Button
+        onClick={buscar}
+        className="w-full"
+        size="lg"
+        disabled={buscando || sinUbicacion || !insumoId}
+      >
         <Search className="h-4 w-4" />
         {buscando ? "Buscando…" : "Buscar centro más cercano"}
       </Button>
@@ -177,7 +241,7 @@ export function DonarFlow({
                   <>
                     Ningún centro registró necesidad de{" "}
                     <strong className="text-slate-200">{insumoNombre}</strong>. Estos son
-                    los centros activos más cercanos por si quieres acercarte igual:
+                    los centros activos más cercanos:
                   </>
                 ) : (
                   <>
@@ -187,7 +251,6 @@ export function DonarFlow({
                   </>
                 )}
               </p>
-
               {resultados.map((r, idx) => (
                 <ResultadoCard key={r.centro_id} r={r} destacado={!esFallback && idx === 0} />
               ))}
@@ -203,9 +266,7 @@ function ResultadoCard({ r, destacado }: { r: Resultado; destacado: boolean }) {
   return (
     <div
       className={`rounded-xl border p-4 ${
-        destacado
-          ? "border-marca/40 bg-marca/5 shadow-glow"
-          : "border-slate-800 bg-panel/60"
+        destacado ? "border-marca/40 bg-marca/5 shadow-glow" : "border-slate-800 bg-panel/60"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -249,18 +310,14 @@ function ResultadoCard({ r, destacado }: { r: Resultado; destacado: boolean }) {
 
       <div className="mt-3 flex flex-wrap gap-2">
         {r.telefono_contacto && (
-          <>
-            <a href={`tel:${r.telefono_contacto}`}>
-              <Button variant="outline" size="sm">
-                <Phone className="h-4 w-4" /> Llamar
-              </Button>
-            </a>
-          </>
+          <a href={`tel:${r.telefono_contacto}`}>
+            <Button variant="outline" size="sm">
+              <Phone className="h-4 w-4" /> Llamar
+            </Button>
+          </a>
         )}
         <Link href={`/centros/${r.centro_id}`}>
-          <Button variant="ghost" size="sm">
-            Ver detalle
-          </Button>
+          <Button variant="ghost" size="sm">Ver detalle</Button>
         </Link>
       </div>
     </div>
